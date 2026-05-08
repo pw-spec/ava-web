@@ -1,5 +1,12 @@
 # Compliance Safeguards — Ava / Lux Platform
 
+> **This is the engineering implementation reference.** The legal baseline —
+> per-law detail, pre-launch checklist, attorney-review gate, quarterly audit
+> cadence — lives in `docs/COMPLIANCE_BASELINE.md`. The two docs are
+> complementary: this one explains *how* the code enforces compliance; the
+> baseline explains *what laws* are being enforced and *what other steps*
+> (insurance, contracts, attorney review) are needed beyond code.
+
 ## Overview
 
 Five layers of defense ensure the platform never violates healthcare regulations, FTC rules, or AI disclosure laws. These safeguards are built into code, not just policy documents.

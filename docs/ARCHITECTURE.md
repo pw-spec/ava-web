@@ -11,8 +11,9 @@ Two frontends (Ava + Lux), one backend API, shared vendor integrations. The fron
 │  FRONTEND (Vercel — no PHI)                     │
 │                                                 │
 │  withava.co          withlux.co                 │
-│  (Next.js)           (Next.js)                  │
-│  Teal/navy theme     Dark/purple theme          │
+│  (Next.js 15.5)      (Next.js 15.5)             │
+│  Hone register —     Same dark + purple         │
+│   warm dark + teal    accent override           │
 │  Ava personality     Lux personality            │
 │                                                 │
 │  Same codebase, different:                      │
@@ -29,10 +30,11 @@ Two frontends (Ava + Lux), one backend API, shared vendor integrations. The fron
 │  API Gateway → Lambda Functions                 │
 │                                                 │
 │  Routes:                                        │
-│  POST /chat          → conversation handler     │
+│  POST /intake        → save structured intake   │
+│  POST /chat          → free-form follow-up      │
 │  POST /auth/signup   → user registration        │
 │  POST /auth/login    → authentication           │
-│  GET  /profile       → health scores            │
+│  GET  /profile       → health scores + intake   │
 │  POST /labs/order    → lab kit order (→ OpenLoop)│
 │  POST /subscribe     → Stripe checkout          │
 │  GET  /scores/share  → shareable card data      │
@@ -71,13 +73,14 @@ Two frontends (Ava + Lux), one backend API, shared vendor integrations. The fron
 
 | Decision | Choice | Why |
 |---|---|---|
-| Framework | Next.js 14+ App Router | Server components, Vercel-native, best DX |
-| Language | TypeScript | Type safety for health data structures |
-| Styling | Tailwind CSS | Rapid iteration, consistent design tokens |
-| State management | React hooks + Context | Simple enough for our needs, no Redux overhead |
-| Fonts | Google Fonts (DM Sans + Cormorant Garamond) | Premium feel, free, fast CDN |
-| Charts | Custom SVG | Full control over radar chart animation |
-| Forms | Native HTML + React | No form library needed for simple inputs |
+| Framework | Next.js 15.5 (App Router) | Server components, Vercel-native, best DX |
+| Language | TypeScript 5 (strict) | Type safety for health data structures |
+| Styling | Tailwind CSS v4 + CSS custom properties | Tokens centralized in `globals.css` |
+| Package manager | pnpm (pinned via `packageManager`) | Fast installs, first-class Vercel support |
+| State management | React hooks + `ProfileScoresContext` | Cross-route handoff without URL params or storage |
+| Fonts | Google Fonts (Inter + JetBrains Mono) | Premium clinical feel, free, fast CDN |
+| Charts | Custom SVG (no library) | Full control over rAF-based polygon morph |
+| Forms | Native HTML + React, no form library | Simple inputs, validation lives in `intakeFlow.ts` |
 | Auth | JWT from backend API | Stored in httpOnly cookie, not localStorage |
 | Deployment | Vercel | Auto-deploy from GitHub, edge network |
 
@@ -117,19 +120,74 @@ Two frontends (Ava + Lux), one backend API, shared vendor integrations. The fron
    - If readyToClose: trigger transition to /profile
 ```
 
+### Data Flow — Structured Intake (`/qualify`)
+
+The avatar-led structured intake at `/qualify` runs entirely client-side
+(Phase 1) — no backend round-trip required to render or advance steps.
+
+```
+1. User clicks CTA on /  → router.push('/qualify')
+
+2. /qualify mounts:
+   - INTAKE_FLOW from src/lib/intakeFlow.ts (typed step definitions)
+   - useState<answers>({}) + useState<stepIndex>(0)
+
+3. Per step:
+   - <AvaQuestion> re-mounts (key={stepId}) — fades in, orb pulses
+   - User picks answer via the step's input widget
+   - Continue button enabled when step.validate(answer) returns true
+   - Enter advances when valid
+
+4. Final step (email):
+   - deriveScoresFromIntake(answers) → HealthScores
+   - setProfile(scores, answers) writes both into ProfileScoresContext
+   - router.push('/profile') after a 900ms transition
+
+5. /profile reads from ProfileScoresContext:
+   - scores → animated radar + score bars + overall calc
+   - intake → "What you told us" recap card
+```
+
+When the backend exists, the same client flow stays — `setProfile()` will
+additionally `POST /intake` so the structured answers persist server-side.
+The frontend never needs to hold the data after the user navigates away.
+
+### Cross-Route State — `ProfileScoresContext`
+
+The ava-web frontend needs to pass the user's intake + derived scores from
+`/qualify` to `/profile` (and back to `/chat` for contextual greeting).
+URL params don't work — that would put PHI in browser history. localStorage
+doesn't work — same problem plus we don't persist PHI anywhere on the
+client. The provider lives at the root layout; consumers are `/qualify`,
+`/profile`, and `/chat`.
+
+```
+src/lib/profileScores.tsx
+
+ProfileScoresProvider (wraps {children} in app/layout.tsx)
+  ├ scores: HealthScores         (default: NEUTRAL_SCORES)
+  ├ intake: IntakeAnswers | null
+  ├ hasProfileScores: boolean
+  └ setProfile(scores, intake) | setProfileScores(scores)
+```
+
+State is in-memory only. A page refresh wipes it — that's the design.
+Refreshing `/profile` shows the neutral-state demo + a "take the
+assessment" hint pointing back to `/qualify`.
+
 ### Data Flow — PHI Boundary
 
 ```
 BROWSER (no PHI persisted):
   - Chat messages in React state (lost on page refresh — that's OK)
-  - Health scores in React state
-  - User email (for auth)
-  - JWT token (httpOnly cookie)
-  
+  - Health scores + intake answers in ProfileScoresContext (in-memory)
+  - User email (for auth, post-launch)
+  - JWT token (httpOnly cookie, post-launch)
+
   PHI NEVER touches:
   - localStorage
   - sessionStorage
-  - URL parameters
+  - URL parameters (the redesign explicitly retired URL-encoded scores)
   - Console logs (in production)
   - Analytics events
   - Error reporting payloads
@@ -162,14 +220,19 @@ PHASE 2 (Month 2-3, funded by revenue):
   Activated only after user engages deeply (3+ questions answered)
   Cost: ~$0.21 per full avatar conversation (5 minutes)
   
-  Graduated unlock:
-  - Anonymous: text only (6 messages max)
-  - Signed up: text only (12 more messages)
-  - Engaged (3+ symptom areas): live avatar unlocks
+  Graduated unlock (post-redesign):
+  - Anyone can complete /qualify (free, structured, ~5 min)
+  - /chat free-form layer activates after intake (no message gate)
+  - Engaged (intake done + 3+ free-form turns): live avatar unlocks
   - 5-minute avatar session cap
   - Daily budget ceiling: $100/day on avatar costs
   - Concurrency cap: max 50 simultaneous avatar sessions
 ```
+
+The original "6 free messages for anonymous" gate was front-door semantics
+for the open-chat-as-landing experience. After the redesign that gate is
+unnecessary: every user starts at `/qualify` with no Claude calls, and
+free-form `/chat` is opt-in, not the default path.
 
 ### Multi-Brand Architecture
 
