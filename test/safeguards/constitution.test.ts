@@ -7,6 +7,13 @@ describe('constitution', () => {
     expect(CONSTITUTION).toMatch(/never diagnose/i);
     expect(CONSTITUTION).toMatch(/wellness indicators/i);
   });
+
+  it('sets a warm, supportive tone bounded by a mental-health-care guardrail', () => {
+    // Warm + emotionally present (drives attachment) ...
+    expect(CONSTITUTION).toMatch(/warm|encouraging|in (?:his|your) corner/i);
+    // ... but explicitly not therapy / not a substitute for mental-health care.
+    expect(CONSTITUTION).toMatch(/not a (?:therapist|substitute for mental-health)/i);
+  });
 });
 
 describe('buildConstitutionMessages', () => {
