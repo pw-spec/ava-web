@@ -21,13 +21,16 @@ governs all copy.
 - `/lib/scoring`: deterministic signals → six-axis scores + overall + tier (pure, tested).
 - Radar chart component (hand-rolled SVG, warm aesthetic, smooth animation, `??` for unscored axes).
 - Landing page: warm hero + one CTA + an **interactive teaser** (3 sample questions → live radar).
-- **Email-capture** CTA: form + `/api/waitlist` route (zod-validated) → dev-only local store.
+- **Email-capture** CTA: form + `/api/waitlist` route (zod-validated) → **Supabase `waitlist`
+  table** (RLS on, server-side insert via service role).
+- A minimal Supabase foundation: server-only admin client + first migration (waitlist only).
 - Persistent "AI · not medical advice" disclaimer (lightweight Layer-5 surface).
 - Tests: scoring (Vitest/node) + real UI tests (Vitest + jsdom + Testing Library).
 
 **Out of scope (later slices)**
-- Auth, the full accepted-checkbox disclosure gate, geo-block → **1B**.
-- Durable email/waitlist storage (Supabase table or marketing tool) → **1B**.
+- Full auth, the accepted-checkbox disclosure gate, geo-block → **1B**.
+- The full health schema (`users`, `health_scores`, `compliance_log`, encryption, …) → **1B**. 1A
+  adds *only* the `waitlist` table.
 - Real chat / LLM-populated signals, live radar from a conversation → **1C**.
 - Credits, Stripe, profile report, brag card, avatar, referrals → **1D–1G**.
 
@@ -50,7 +53,10 @@ and make accessible.
   index.ts        public exports
 /lib/waitlist
   validate.ts     parseWaitlistEmail(input) -> { ok, email } | { ok: false, error }  (zod)
-  store.ts        appendEmail(email) -> Promise<void>  (dev-only file store)
+/lib/supabase
+  admin.ts        server-only admin client (service role); `import 'server-only'` guard
+/supabase/migrations
+  <timestamp>_waitlist.sql   waitlist table + RLS (applied via Supabase MCP to the dev project)
 /components/radar
   RadarChart.tsx        SVG hexagon radar; 6 axes; soft gradient fill; renders ?? for null axes
   useAnimatedScores.ts  RAF lerp hook: animates current scores toward target
@@ -118,16 +124,23 @@ accent, humanist sans, soft gradient radar fills. Consistent with Ava's warm com
   radar should feel **attractive and interactive** — smooth vertex animation, hover/active
   affordances on the questions, a satisfying score count-up.
 
-## Email capture
+## Email capture (Supabase-backed)
 
 - `EmailCapture.tsx`: controlled input, client-side validity hint, states idle → submitting →
   success → error. On submit, POST `{ email }` to `/api/waitlist`.
 - `/api/waitlist/route.ts` (POST): `parseWaitlistEmail` (zod `.email()`); on failure → `400` with a
-  safe message; on success → `appendEmail(email)` then `200 { ok: true }`. No LLM call (safeguard
-  pipeline not required); does not log the raw email beyond the store write.
-- `appendEmail` (dev store): append `{ email, ts }` as one JSON line to `.data/waitlist.jsonl`
-  (gitignored). **Dev-only.** Durable storage + privacy handling (double-opt-in, retention) is
-  **Slice 1B** — noted here so it is not forgotten.
+  safe message; on success → insert via the Supabase **admin** client; duplicate email → treat as
+  success (`200 { ok: true }`, idempotent UX); other DB error → `500` safe message. No LLM call
+  (safeguard pipeline not required); never logs the raw email.
+- `/lib/supabase/admin.ts`: a service-role client created from `SUPABASE_SERVICE_ROLE_KEY`, with
+  `import 'server-only'` at the top so it can never be bundled into client code (the service-role
+  key stays server-side — the same protection principle as the `/lib/llm` import guard).
+- **Migration** (`/supabase/migrations/<ts>_waitlist.sql`): `waitlist(id uuid pk default
+  gen_random_uuid(), email text unique not null, source text, created_at timestamptz default now())`;
+  **RLS enabled**; **no anon/public select or insert policy** (writes go through the service role in
+  the route only). Applied to the **dev** project via the Supabase MCP; verify RLS is on after apply.
+- Privacy note: a waitlist email is PII but not 🔒 health data. Retention/double-opt-in/unsubscribe
+  policy is handled with the broader privacy work in 1B; 1A just stores the address with RLS on.
 
 ## Compliance touches
 
@@ -143,6 +156,9 @@ accent, humanist sans, soft gradient radar fills. Consistent with Ava's warm com
   boundaries (79/80, 64/65, 49/50, 34/35, 19/20).
 - **Waitlist validate (Vitest, node):** valid email passes; missing/`""`/`"not-an-email"`/non-string
   fail with `ok: false`.
+- **Waitlist route (Vitest, node):** the Supabase admin client is **mocked** (no live DB in unit
+  tests); invalid body → `400`; valid email → insert called → `200`; duplicate → `200`; DB error →
+  `500`. (RLS itself is verified manually via the Supabase MCP after the migration applies.)
 - **Components (Vitest + jsdom via per-file `// @vitest-environment jsdom`, Testing Library):**
   - RadarChart renders 6 axis labels; shows `??` for `null` axes; applies the tier label for a given
     overall.
@@ -150,8 +166,9 @@ accent, humanist sans, soft gradient radar fills. Consistent with Ava's warm com
     score.
   - EmailCapture: invalid email shows the error state and does not submit; valid email transitions to
     success (fetch mocked).
-- New dev deps: `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`. Global Vitest env
-  stays `node`; component tests opt into jsdom per-file.
+- New runtime deps: `@supabase/supabase-js`, `server-only`. New dev deps: `jsdom`,
+  `@testing-library/react`, `@testing-library/jest-dom`. Global Vitest env stays `node`; component
+  tests opt into jsdom per-file.
 
 ## Branch & commits
 
@@ -163,12 +180,16 @@ concern per commit.
 - [ ] `/lib/scoring` pure functions implemented; Vitest green incl. tier-boundary + `??` cases.
 - [ ] RadarChart renders all 6 axes with smooth animation and `??` for unscored; warm aesthetic.
 - [ ] Landing page: hero + interactive teaser (3 questions drive the live radar) + disclosure footer.
-- [ ] Email-capture form works against `/api/waitlist` (zod-validated; dev store); success/error UI.
-- [ ] Real UI tests (jsdom + Testing Library) green for radar, teaser, and email form.
+- [ ] Email-capture persists to the Supabase `waitlist` table (RLS on) via the server-side route;
+      duplicate handled gracefully; success/error UI.
+- [ ] Service-role key is never reachable from client code (`server-only` guard on the admin client).
+- [ ] Real UI tests (jsdom + Testing Library) green for radar, teaser, and email form; route test
+      green with the DB mocked.
 - [ ] `npm run lint` clean, `npm run build` succeeds, `npm run test` green.
 - [ ] No medical-claim language anywhere in copy.
 
 ## Deferred (explicit)
 
-Auth + accepted-checkbox disclosure gate + geo-block (1B); durable waitlist storage (1B); real chat
-+ LLM-populated signals (1C); credits/Stripe/profile/brag card/avatar/referrals (1D–1G).
+Full auth + accepted-checkbox disclosure gate + geo-block (1B); the full health schema + encryption +
+`compliance_log` (1B); real chat + LLM-populated signals (1C); credits/Stripe/profile/brag
+card/avatar/referrals (1D–1G).
