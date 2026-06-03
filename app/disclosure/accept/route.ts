@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { hashUserRef, writeComplianceEvent } from '@/lib/compliance/log';
 import { isBlockedState } from '@/lib/auth/geo';
 
 export async function POST(request: Request): Promise<Response> {
@@ -26,12 +28,10 @@ export async function POST(request: Request): Promise<Response> {
   const existingState = (profile?.state_code as string | null) ?? null;
   const finalState = existingState ?? submittedState;
 
-  // Need both a known state and an affirmative acceptance to proceed.
   if (!finalState || !accepted) {
     return NextResponse.redirect(new URL('/disclosure', origin), { status: 303 });
   }
 
-  // Persist the state we learned so a self-reported CA/NY is a sticky block.
   if (isBlockedState(finalState)) {
     await supabase.from('users').update({ state_code: finalState }).eq('id', user.id);
     return NextResponse.redirect(new URL('/unavailable', origin), { status: 303 });
@@ -41,5 +41,17 @@ export async function POST(request: Request): Promise<Response> {
     .from('users')
     .update({ state_code: finalState, ai_disclosure_accepted_at: new Date().toISOString() })
     .eq('id', user.id);
+
+  // De-identified audit event (best-effort; never block the user path).
+  try {
+    await writeComplianceEvent(getSupabaseAdmin(), {
+      userRef: hashUserRef(user.id),
+      event: 'disclosure_accepted',
+      outcome: 'accepted',
+    });
+  } catch {
+    // intentionally ignored — audit write failure must not break onboarding
+  }
+
   return NextResponse.redirect(new URL('/home', origin), { status: 303 });
 }
