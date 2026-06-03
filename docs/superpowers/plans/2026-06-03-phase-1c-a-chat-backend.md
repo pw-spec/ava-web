@@ -230,15 +230,17 @@ Expected: FAIL — cannot resolve `@/lib/chat/signals`.
 - [ ] **Step 3: Write `lib/chat/signals.ts`**
 
 ```ts
-import type { Severity, Signals } from '@/lib/scoring';
+import type { Signals } from '@/lib/scoring';
 import type { SignalsTurn } from '@/lib/safeguards/types';
 
 /** Append a turn's severities to the accumulated signals (pure). */
 export function mergeSignals(accumulated: Signals, turn: SignalsTurn): Signals {
   const existing = accumulated[turn.axis] ?? [];
-  return { ...accumulated, [turn.axis]: [...existing, ...(turn.severities as Severity[])] };
+  return { ...accumulated, [turn.axis]: [...existing, ...turn.severities] };
 }
 ```
+
+(`SignalsTurn.severities` is `Severity[]`, so no cast is needed here.)
 
 - [ ] **Step 4: Run it — confirm PASS**
 
