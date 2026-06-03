@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CONSTITUTION, buildConstitutionMessages } from '@/lib/safeguards/constitution';
+import type { LlmMessage } from '@/lib/safeguards/types';
 
 describe('constitution', () => {
   it('states the core identity and prohibitions', () => {
@@ -28,5 +29,15 @@ describe('buildConstitutionMessages', () => {
   it('omits the context message when there are no summaries', () => {
     const messages = buildConstitutionMessages('hello');
     expect(messages).toHaveLength(2);
+  });
+
+  it('splices conversation history before the latest user message', () => {
+    const history: LlmMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'hey, how is your energy?' },
+    ];
+    const msgs = buildConstitutionMessages('pretty low', { history });
+    expect(msgs.at(-1)).toEqual({ role: 'user', content: 'pretty low' });
+    expect(msgs.some((m) => m.role === 'assistant' && m.content.includes('how is your energy'))).toBe(true);
   });
 });

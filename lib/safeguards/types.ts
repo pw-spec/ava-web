@@ -1,5 +1,12 @@
 export type { LlmMessage, LlmResponse, LlmCaller } from '@/lib/llm/types';
-import type { LlmCaller } from '@/lib/llm/types';
+import type { LlmCaller, LlmMessage } from '@/lib/llm/types';
+import type { Axis, Severity } from '@/lib/scoring';
+
+/** A validated per-turn extraction (post Layer-4 `validateSignals`). */
+export interface SignalsTurn {
+  axis: Axis;
+  severities: Severity[];
+}
 
 export type EmergencyCategory = 'self_harm' | 'medical_crisis';
 
@@ -22,6 +29,7 @@ export interface OutputFilterResult {
 
 export interface ConversationContext {
   recentSummaries?: string[];
+  history?: LlmMessage[];
 }
 
 /** De-identified compliance events. Never carries symptoms, scores, or message content. */

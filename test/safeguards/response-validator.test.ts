@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateScored } from '@/lib/safeguards/response-validator';
+import { validateScored, validateSignals } from '@/lib/safeguards/response-validator';
 
 const valid = {
   energy: 40,
@@ -29,5 +29,21 @@ describe('validateScored', () => {
     ['not an object', 'nope'],
   ])('rejects %s', (_label, input) => {
     expect(validateScored(input).valid).toBe(false);
+  });
+});
+
+describe('validateSignals', () => {
+  it('accepts a valid per-turn extraction', () => {
+    expect(validateSignals({ axis: 'energy', severities: [2, 3] }).valid).toBe(true);
+  });
+
+  it.each<[string, unknown]>([
+    ['unknown axis', { axis: 'mood', severities: [2] }],
+    ['severity out of range', { axis: 'energy', severities: [9] }],
+    ['empty severities', { axis: 'energy', severities: [] }],
+    ['extra field', { axis: 'energy', severities: [2], note: 'x' }],
+    ['not an object', 'nope'],
+  ])('rejects %s', (_label, input) => {
+    expect(validateSignals(input).valid).toBe(false);
   });
 });

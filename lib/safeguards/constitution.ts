@@ -30,6 +30,10 @@ export function buildConstitutionMessages(
     });
   }
 
+  if (context?.history?.length) {
+    messages.push(...context.history);
+  }
+
   messages.push({ role: 'user', content: userMessage });
   return messages;
 }
