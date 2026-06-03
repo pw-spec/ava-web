@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+:root {
+  --bg: #f6f0e8;
+  --fg: #2b2622;
+  --accent: #c8643c;
+  --accent-2: #d9a441;
+
+  --tier-optimized: #3f9c5a;
+  --tier-solid: #6fae4f;
+  --tier-room: #d8a24a;
+  --tier-attention: #d2792f;
+  --tier-flagged: #c2502f;
+  --tier-critical: #7d2b1d;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+}
