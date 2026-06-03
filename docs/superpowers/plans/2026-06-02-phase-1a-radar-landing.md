@@ -61,9 +61,11 @@ git checkout -b phase-1a/radar-landing
 
 ```bash
 npm install @supabase/supabase-js@^2.107.0 server-only@^0.0.1
-npm install -D @vitejs/plugin-react@^6.0.2 jsdom@^29.1.1 @testing-library/react@^16.3.2 @testing-library/jest-dom@^6.9.1
+npm install -D @vitejs/plugin-react@^5.2.0 jsdom@^29.1.1 @testing-library/react@^16.3.2 @testing-library/jest-dom@^6.9.1 @testing-library/dom@^10
 ```
-Expected: installs succeed; `package.json` updated.
+Expected: installs succeed; `package.json` updated. (Use `@vitejs/plugin-react@^5`, not v6 — v6
+requires vite 8, but vitest 3 brings vite 7. `@testing-library/dom` is a required peer of
+`@testing-library/react` v16.)
 
 - [ ] **Step 3: Update `vitest.config.ts`**
 
