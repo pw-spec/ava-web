@@ -13,6 +13,7 @@ describe('parseWaitlistEmail', () => {
     ['not an email', { email: 'nope' }],
     ['non-string', { email: 42 }],
     ['null body', null],
+    ['over 254 chars', { email: `${'a'.repeat(250)}@b.com` }],
   ])('rejects %s', (_label, input) => {
     expect(parseWaitlistEmail(input).ok).toBe(false);
   });

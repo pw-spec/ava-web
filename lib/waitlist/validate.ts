@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-const schema = z.object({ email: z.string().email() });
+// RFC 5321 caps an email address at 254 characters.
+const schema = z.object({ email: z.string().email().max(254) });
 
 export type WaitlistParse =
   | { ok: true; email: string }
