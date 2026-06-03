@@ -9,7 +9,7 @@ import {
 
 function axisScore(severities: Severity[] | undefined): number | null {
   if (!severities || severities.length === 0) return null;
-  const mean = severities.reduce((a, b) => a + b, 0) / severities.length;
+  const mean = severities.reduce<number>((a, b) => a + b, 0) / severities.length;
   return Math.round((mean / 4) * 100);
 }
 
