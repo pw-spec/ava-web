@@ -7,6 +7,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function EmailCapture() {
   const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState(''); // honeypot — real users leave this empty
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
 
@@ -22,7 +23,7 @@ export function EmailCapture() {
       const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, website }),
       });
       if (!res.ok) throw new Error('failed');
       setStatus('success');
@@ -38,6 +39,18 @@ export function EmailCapture() {
 
   return (
     <form onSubmit={submit} noValidate className="flex w-full max-w-md flex-col gap-2">
+      {/* Honeypot: off-screen, not focusable, hidden from assistive tech. Bots fill it. */}
+      <input
+        type="text"
+        name="website"
+        data-testid="honeypot"
+        value={website}
+        onChange={(e) => setWebsite(e.target.value)}
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, overflow: 'hidden' }}
+      />
       <div className="flex gap-2">
         <input
           type="email"

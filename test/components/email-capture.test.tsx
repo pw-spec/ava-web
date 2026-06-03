@@ -24,4 +24,11 @@ describe('EmailCapture', () => {
     await waitFor(() => expect(screen.getByText(/you're on the list/i)).toBeInTheDocument());
     expect(fetch).toHaveBeenCalledWith('/api/waitlist', expect.objectContaining({ method: 'POST' }));
   });
+
+  it('renders a non-focusable, hidden honeypot field', () => {
+    render(<EmailCapture />);
+    const honeypot = screen.getByTestId('honeypot');
+    expect(honeypot).toHaveAttribute('tabindex', '-1');
+    expect(honeypot).toHaveAttribute('aria-hidden', 'true');
+  });
 });
