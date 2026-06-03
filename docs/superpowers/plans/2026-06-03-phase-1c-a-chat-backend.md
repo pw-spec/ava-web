@@ -586,10 +586,13 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const getUser = vi.fn();
-const maybeSingle = vi.fn();
-const rpc = vi.fn();
-const runChatTurn = vi.fn();
+// vi.hoisted so the (hoisted) vi.mock factories can reference these without a TDZ error.
+const { getUser, maybeSingle, rpc, runChatTurn } = vi.hoisted(() => ({
+  getUser: vi.fn(),
+  maybeSingle: vi.fn(),
+  rpc: vi.fn(),
+  runChatTurn: vi.fn(),
+}));
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
