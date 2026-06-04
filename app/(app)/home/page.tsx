@@ -1,15 +1,25 @@
-export default function HomePage() {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 px-6">
-      <h1 className="text-3xl font-semibold">You&apos;re in.</h1>
-      <p className="text-[var(--fg)]/70">
-        Your wellness check-in is coming soon. We&apos;ll bring your radar here once it&apos;s ready.
-      </p>
-      <form action="/auth/signout" method="post">
-        <button type="submit" className="rounded-full border border-[var(--fg)]/15 px-5 py-2 text-sm">
-          Sign out
-        </button>
-      </form>
-    </main>
-  );
+import { createClient } from '@/lib/supabase/server';
+import { getLatestHealthScores } from '@/lib/health/store';
+import { AXES, tierForOverall, type AxisScores, type RadarProfile } from '@/lib/scoring';
+import { ChatScreen } from '@/components/chat/ChatScreen';
+
+function emptyAxes(): AxisScores {
+  const axes = {} as AxisScores;
+  for (const a of AXES) axes[a] = null;
+  return axes;
+}
+
+export default async function HomePage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // The proxy already gates this route; guard anyway. Pre-fill the radar from the latest snapshot.
+  const latest = user ? await getLatestHealthScores(supabase, user.id) : null;
+  const initialProfile: RadarProfile = latest
+    ? { axes: latest.axes, overall: latest.overall, tier: tierForOverall(latest.overall) }
+    : { axes: emptyAxes(), overall: null, tier: null };
+
+  return <ChatScreen initialProfile={initialProfile} />;
 }
