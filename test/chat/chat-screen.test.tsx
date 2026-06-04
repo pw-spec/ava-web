@@ -2,8 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-const { sendChatTurn } = vi.hoisted(() => ({ sendChatTurn: vi.fn() }));
-vi.mock('@/lib/chat/client', () => ({ sendChatTurn }));
+const { sendChatTurn, endSession } = vi.hoisted(() => ({ sendChatTurn: vi.fn(), endSession: vi.fn() }));
+vi.mock('@/lib/chat/client', () => ({ sendChatTurn, endSession }));
 
 import { ChatScreen } from '@/components/chat/ChatScreen';
 import type { RadarProfile } from '@/lib/scoring';
@@ -20,7 +20,10 @@ function type(text: string) {
 }
 
 describe('ChatScreen', () => {
-  beforeEach(() => sendChatTurn.mockReset());
+  beforeEach(() => {
+    sendChatTurn.mockReset();
+    endSession.mockReset().mockResolvedValue({ ok: true, summarized: true });
+  });
 
   it('opens with a greeting so the screen is never empty', () => {
     render(<ChatScreen initialProfile={emptyProfile} />);
@@ -101,5 +104,18 @@ describe('ChatScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /end check-?in/i }));
     expect(screen.queryByText(/help is available/i)).not.toBeInTheDocument();
     expect(screen.getByRole('textbox')).toBeEnabled();
+  });
+
+  it('finalizes the session via /api/session/end on End check-in', async () => {
+    sendChatTurn.mockResolvedValue({ kind: 'reply', reply: 'ok', signals: {}, profile: emptyProfile, sessionId: 's1' });
+    render(<ChatScreen initialProfile={emptyProfile} />);
+    type('low energy');
+    await waitFor(() => expect(screen.getByText('ok')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /wellness score/i })); // open the drawer
+    fireEvent.click(screen.getByRole('button', { name: /end check-?in/i }));
+    await waitFor(() => expect(endSession).toHaveBeenCalledTimes(1));
+    const arg = endSession.mock.calls[0][0];
+    expect(arg.sessionId).toBe('s1');
+    expect(arg.messages.some((m: { content: string }) => m.content === 'low energy')).toBe(true);
   });
 });
