@@ -6,6 +6,14 @@ import { gateDecision } from '@/lib/auth/gate';
 import { makeComplianceSink } from '@/lib/compliance/log';
 import { scanForEmergency } from '@/lib/safeguards/emergency-detection';
 import { runChatTurn } from '@/lib/chat/turn';
+import {
+  getRecentSummaries,
+  getUserFacts,
+  createChatSession,
+  getBaselineScores,
+  upsertSessionScores,
+} from '@/lib/health/store';
+import { overlayProfile } from '@/lib/chat/overlay';
 import type { Signals } from '@/lib/scoring';
 import type { LlmMessage } from '@/lib/safeguards/types';
 
@@ -32,6 +40,7 @@ const bodySchema = z.object({
     .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().min(1).max(4000) }))
     .min(1),
   signals: signalsSchema,
+  sessionId: z.string().uuid().optional(),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -83,12 +92,42 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
 
+  // Memory load (user's RLS-scoped client; never round-trips through the client).
+  const [summaries, facts] = await Promise.all([
+    getRecentSummaries(supabase, user.id),
+    getUserFacts(supabase, user.id),
+  ]);
+  const recentSummaries: string[] = [];
+  if (facts) {
+    const parts: string[] = [];
+    if (facts.ageBand) parts.push(`age band ${facts.ageBand}`);
+    if (facts.wearable) parts.push(`wears a ${facts.wearable}`);
+    if (parts.length) recentSummaries.push(`Known facts: ${parts.join(', ')}.`);
+  }
+  // Oldest→newest reads naturally as "recent context".
+  for (const s of [...summaries].reverse()) recentSummaries.push(s.summary);
+
   const result = await runChatTurn({
     history: messages.slice(0, -1),
     userMessage: last.content,
     // reason: zod infers number[]; the schema runtime-validates each to an int 0–4 (a Severity).
     signals: parsed.data.signals as Signals,
+    recentSummaries,
     log: makeComplianceSink(admin, user.id),
   });
-  return NextResponse.json(result);
+
+  if (result.kind !== 'reply') {
+    return NextResponse.json({ ...result, sessionId: parsed.data.sessionId ?? null });
+  }
+
+  // Persist a per-session snapshot, overlaid on the user's prior baseline (continuity).
+  const sessionId = parsed.data.sessionId ?? (await createChatSession(supabase, user.id));
+  const baseline = await getBaselineScores(supabase, user.id, sessionId);
+  const overlaid = overlayProfile(baseline, result.profile);
+  try {
+    await upsertSessionScores(supabase, user.id, sessionId, overlaid);
+  } catch {
+    // A score-save glitch must never break the conversation; the reply still returns.
+  }
+  return NextResponse.json({ ...result, profile: overlaid, sessionId });
 }
