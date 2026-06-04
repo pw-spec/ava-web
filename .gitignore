@@ -11,3 +11,6 @@ yarn-error.log*
 /coverage
 next-env.d.ts
 *.tsbuildinfo
+
+# Brainstorming visual companion
+.superpowers/
