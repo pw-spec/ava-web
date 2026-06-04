@@ -37,7 +37,8 @@ export type ComplianceEvent =
   | 'emergency_detected'
   | 'filter_block'
   | 'validator_reject'
-  | 'llm_error';
+  | 'llm_error'
+  | 'summary_filtered';
 
 export interface ComplianceRecord {
   event: ComplianceEvent;
