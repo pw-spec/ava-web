@@ -55,15 +55,9 @@ describe('runChatPipeline', () => {
     expect(res.kind).toBe('redirect');
   });
 
-  it('rejects out-of-range structured scores, regenerating once', async () => {
-    const bad = {
-      text: 'ok',
-      structured: { energy: 200, strength: 50, sleep: 50, drive: 50, focus: 50, body: 50, overall: 50 },
-    };
-    const good = {
-      text: 'ok',
-      structured: { energy: 40, strength: 50, sleep: 50, drive: 50, focus: 50, body: 50, overall: 48 },
-    };
+  it('rejects invalid structured signals, regenerating once', async () => {
+    const bad = { text: 'ok', structured: { axis: 'energy', severities: [9] } };
+    const good = { text: 'ok', structured: { axis: 'energy', severities: [3] } };
     const llm = vi.fn().mockResolvedValueOnce(bad).mockResolvedValueOnce(good);
     const res = await runChatPipeline({ userMessage: 'score me', llm });
     expect(res.kind).toBe('reply');

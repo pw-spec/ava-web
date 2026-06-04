@@ -1,7 +1,7 @@
 import { scanForEmergency } from './emergency-detection';
 import { CRISIS_CARD } from './crisis-card';
 import { scanOutput } from './output-filter';
-import { validateScored } from './response-validator';
+import { validateSignals } from './response-validator';
 import { buildConstitutionMessages } from './constitution';
 import type {
   ComplianceSink,
@@ -61,8 +61,9 @@ export async function runChatPipeline(input: PipelineInput): Promise<PipelineRes
     log({ event: 'filter_block', outcome: 'regenerated' });
   }
 
-  // Layer 4 — response validator (only when structured scores are present).
-  if (raw.structured !== undefined && !validateScored(raw.structured).valid) {
+  // Layer 4 — response validator validates the model's extracted signals
+  // (only when structured output is present).
+  if (raw.structured !== undefined && !validateSignals(raw.structured).valid) {
     try {
       raw = await llm(retryMessages);
     } catch {
@@ -74,7 +75,7 @@ export async function runChatPipeline(input: PipelineInput): Promise<PipelineRes
       log({ event: 'filter_block', outcome: 'redirected' });
       return { kind: 'redirect', text: SAFE_REDIRECT };
     }
-    if (raw.structured === undefined || !validateScored(raw.structured).valid) {
+    if (raw.structured === undefined || !validateSignals(raw.structured).valid) {
       log({ event: 'validator_reject', outcome: 'errored' });
       return { kind: 'error', text: SAFE_ERROR };
     }
