@@ -8,11 +8,19 @@ beforeAll(() => {
 });
 
 // vi.hoisted so the (hoisted) vi.mock factories can reference these without a TDZ error.
-const { getUser, maybeSingle, rpc, runChatTurn } = vi.hoisted(() => ({
+const { getUser, maybeSingle, rpc, runChatTurn, store } = vi.hoisted(() => ({
   getUser: vi.fn(),
   maybeSingle: vi.fn(),
   rpc: vi.fn(),
   runChatTurn: vi.fn(),
+  store: {
+    getRecentSummaries: vi.fn(),
+    getUserFacts: vi.fn(),
+    createChatSession: vi.fn(),
+    userOwnsSession: vi.fn(),
+    getBaselineScores: vi.fn(),
+    upsertSessionScores: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -23,6 +31,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 vi.mock('@/lib/supabase/admin', () => ({ getSupabaseAdmin: () => ({ rpc }) }));
 vi.mock('@/lib/chat/turn', () => ({ runChatTurn }));
+vi.mock('@/lib/health/store', () => store);
 
 import { POST } from '@/app/api/chat/route';
 
@@ -45,7 +54,22 @@ describe('POST /api/chat', () => {
     getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
     maybeSingle.mockResolvedValue({ data: { state_code: 'TX', ai_disclosure_accepted_at: 't' } });
     rpc.mockResolvedValue({ data: 1, error: null });
-    runChatTurn.mockResolvedValue({ kind: 'reply', reply: 'hey', signals: {}, profile: {} });
+    store.getRecentSummaries.mockReset().mockResolvedValue([]);
+    store.getUserFacts.mockReset().mockResolvedValue(null);
+    store.createChatSession.mockReset().mockResolvedValue('new-sess');
+    store.userOwnsSession.mockReset().mockResolvedValue(true);
+    store.getBaselineScores.mockReset().mockResolvedValue(null);
+    store.upsertSessionScores.mockReset().mockResolvedValue(undefined);
+    runChatTurn.mockResolvedValue({
+      kind: 'reply',
+      reply: 'hey',
+      signals: { energy: [4] },
+      profile: {
+        axes: { energy: 100, strength: null, sleep: null, drive: null, focus: null, body: null },
+        overall: 100,
+        tier: { label: 'Optimized', color: 'x' },
+      },
+    });
   });
 
   it('401 when unauthenticated', async () => {
@@ -87,5 +111,71 @@ describe('POST /api/chat', () => {
     expect(res.status).toBe(200);
     expect((await res.json()).kind).toBe('crisis');
     expect(runChatTurn).toHaveBeenCalled();
+  });
+
+  it('creates a session, persists the snapshot, and returns sessionId on a reply', async () => {
+    const res = await POST(req(goodBody));
+    const body = await res.json();
+    expect(body.kind).toBe('reply');
+    expect(body.sessionId).toBe('new-sess');
+    expect(store.createChatSession).toHaveBeenCalledWith(expect.anything(), 'u1');
+    expect(store.upsertSessionScores).toHaveBeenCalledWith(
+      expect.anything(),
+      'u1',
+      'new-sess',
+      expect.objectContaining({ overall: 100 }),
+    );
+  });
+
+  it('reuses a provided sessionId (no new session created)', async () => {
+    const res = await POST(req({ ...goodBody, sessionId: '11111111-1111-4111-8111-111111111111' }));
+    expect((await res.json()).sessionId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(store.createChatSession).not.toHaveBeenCalled();
+    expect(store.upsertSessionScores).toHaveBeenCalledWith(
+      expect.anything(),
+      'u1',
+      '11111111-1111-4111-8111-111111111111',
+      expect.anything(),
+    );
+  });
+
+  it('ignores a sessionId the caller does not own (starts a fresh session)', async () => {
+    store.userOwnsSession.mockResolvedValue(false);
+    const res = await POST(req({ ...goodBody, sessionId: '22222222-2222-4222-8222-222222222222' }));
+    const body = await res.json();
+    expect(body.sessionId).toBe('new-sess'); // not the forged id
+    expect(store.createChatSession).toHaveBeenCalled();
+    expect(store.upsertSessionScores).toHaveBeenCalledWith(
+      expect.anything(),
+      'u1',
+      'new-sess',
+      expect.anything(),
+    );
+  });
+
+  it('loads memory into the turn (summaries + facts as recentSummaries)', async () => {
+    store.getRecentSummaries.mockResolvedValue([
+      { summary: 'light sleep last week', sessionType: 'text', createdAt: 't' },
+    ]);
+    store.getUserFacts.mockResolvedValue({ ageBand: '30-39', lifestyle: null, wearable: 'oura' });
+    await POST(req(goodBody));
+    const arg = runChatTurn.mock.calls[0][0];
+    expect(arg.recentSummaries).toContain('light sleep last week');
+    expect(arg.recentSummaries.some((l: string) => l.includes('30-39'))).toBe(true);
+  });
+
+  it('does not persist a score on a non-reply (redirect)', async () => {
+    runChatTurn.mockResolvedValue({ kind: 'redirect', text: 'see a provider' });
+    const res = await POST(req({ ...goodBody, sessionId: '11111111-1111-4111-8111-111111111111' }));
+    const body = await res.json();
+    expect(body.kind).toBe('redirect');
+    expect(body.sessionId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(store.upsertSessionScores).not.toHaveBeenCalled();
+  });
+
+  it('still returns the reply when the score upsert fails', async () => {
+    store.upsertSessionScores.mockRejectedValue(new Error('db down'));
+    const res = await POST(req(goodBody));
+    expect((await res.json()).kind).toBe('reply');
   });
 });

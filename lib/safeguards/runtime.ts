@@ -7,11 +7,12 @@ import type { ComplianceSink, LlmMessage, PipelineResult } from './types';
 export async function runSafeguardedTurn(input: {
   history: LlmMessage[];
   userMessage: string;
+  recentSummaries?: string[];
   log?: ComplianceSink;
 }): Promise<PipelineResult> {
   return runChatPipeline({
     userMessage: input.userMessage,
-    context: { history: input.history },
+    context: { history: input.history, recentSummaries: input.recentSummaries },
     llm: createHaikuCaller(),
     log: input.log,
   });

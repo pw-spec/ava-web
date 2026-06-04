@@ -8,6 +8,10 @@ import {
   saveUserFacts,
   getRecentSummaries,
   getUserFacts,
+  createChatSession,
+  userOwnsSession,
+  upsertSessionScores,
+  getBaselineScores,
 } from '@/lib/health/store';
 
 beforeEach(() => {
@@ -113,5 +117,85 @@ describe('getRecentSummaries / getUserFacts', () => {
       'u1',
     );
     expect(res).toEqual({ ageBand: '30-39', lifestyle: null, wearable: null });
+  });
+});
+
+describe('createChatSession', () => {
+  it('inserts a row and returns the new id', async () => {
+    const chain: Record<string, unknown> = {};
+    chain.insert = () => chain;
+    chain.select = () => chain;
+    chain.single = () => Promise.resolve({ data: { id: 'sess-1' }, error: null });
+    const client = { from: () => chain } as never;
+    expect(await createChatSession(client, 'u1')).toBe('sess-1');
+  });
+});
+
+describe('userOwnsSession', () => {
+  function ownsClient(row: Record<string, unknown> | null) {
+    const result = Promise.resolve({ data: row, error: null });
+    const chain: Record<string, unknown> = {};
+    for (const m of ['select', 'eq']) chain[m] = () => chain;
+    chain.maybeSingle = () => result;
+    return { from: () => chain } as never;
+  }
+
+  it('returns true when the session row exists for the user', async () => {
+    expect(await userOwnsSession(ownsClient({ id: 's1' }), 'u1', 's1')).toBe(true);
+  });
+
+  it('returns false for a foreign or missing session', async () => {
+    expect(await userOwnsSession(ownsClient(null), 'u1', 's1')).toBe(false);
+  });
+});
+
+describe('upsertSessionScores', () => {
+  it('upserts an encrypted snapshot keyed by session_id', async () => {
+    const captured: { row?: Record<string, unknown>; opts?: unknown } = {};
+    const client = {
+      from: () => ({
+        upsert: (row: Record<string, unknown>, opts: unknown) => {
+          captured.row = row;
+          captured.opts = opts;
+          return Promise.resolve({ error: null });
+        },
+      }),
+    } as never;
+    await upsertSessionScores(client, 'u1', 'sess-1', { axes: AXES, overall: 47 });
+    expect(captured.row!.session_id).toBe('sess-1');
+    expect(captured.row!.user_id).toBe('u1');
+    expect(captured.row!.overall).toBe(47);
+    expect(decryptField(captured.row!.energy as string)).toBe('40');
+    expect(captured.opts).toEqual({ onConflict: 'session_id' });
+  });
+
+  it('throws on a DB error', async () => {
+    const client = {
+      from: () => ({ upsert: () => Promise.resolve({ error: { code: '23505' } }) }),
+    } as never;
+    await expect(
+      upsertSessionScores(client, 'u1', 'sess-1', { axes: AXES, overall: 47 }),
+    ).rejects.toThrow(/health_scores/);
+  });
+});
+
+describe('getBaselineScores', () => {
+  function baselineClient(row: Record<string, unknown> | null) {
+    const result = Promise.resolve({ data: row, error: null });
+    const chain: Record<string, unknown> = {};
+    for (const m of ['select', 'eq', 'neq', 'order', 'limit']) chain[m] = () => chain;
+    chain.maybeSingle = () => result;
+    return { from: () => chain } as never;
+  }
+
+  it('decrypts the latest non-active snapshot', async () => {
+    const stored: Record<string, unknown> = { overall: 47 };
+    for (const [k, v] of Object.entries(AXES)) stored[k] = encryptField(String(v));
+    const res = await getBaselineScores(baselineClient(stored), 'u1', 'active-sess');
+    expect(res).toEqual({ axes: AXES, overall: 47 });
+  });
+
+  it('returns null when there is no prior snapshot', async () => {
+    expect(await getBaselineScores(baselineClient(null), 'u1', 'active-sess')).toBeNull();
   });
 });

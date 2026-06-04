@@ -39,4 +39,17 @@ describe('runChatTurn', () => {
     const res = await runChatTurn({ history: [], userMessage: 'x', signals: {} });
     expect(res.kind).toBe('error');
   });
+
+  it('forwards recentSummaries to the safeguarded turn', async () => {
+    runSafeguardedTurn.mockResolvedValue({ kind: 'reply', text: 'ok', structured: undefined, flags: [] });
+    await runChatTurn({
+      history: [],
+      userMessage: 'hi',
+      signals: {},
+      recentSummaries: ['Known facts: age band 30-39.', 'last time: light sleep'],
+    });
+    expect(runSafeguardedTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ recentSummaries: ['Known facts: age band 30-39.', 'last time: light sleep'] }),
+    );
+  });
 });
