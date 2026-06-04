@@ -13,11 +13,13 @@ export async function runChatTurn(input: {
   history: LlmMessage[];
   userMessage: string;
   signals: Signals;
+  recentSummaries?: string[];
   log?: ComplianceSink;
 }): Promise<ChatTurnResult> {
   const result = await runSafeguardedTurn({
     history: input.history,
     userMessage: input.userMessage,
+    recentSummaries: input.recentSummaries,
     log: input.log,
   });
 
