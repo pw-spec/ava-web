@@ -1,20 +1,159 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Ava's identity is a WARM, LIGHT companion palette (cream + terracotta + gold),
+ * not the default shadcn zinc dashboard. shadcn's semantic tokens below are
+ * re-skinned onto that palette so its primitives render in Ava's voice.
+ * - Ava brand tokens: --brand (terracotta), --brand-2 (gold), --tier-* (radar).
+ * - --bg/--fg are kept as aliases of --background/--foreground for existing components.
+ */
 :root {
-  --bg: #f6f0e8;
-  --fg: #2b2622;
-  --accent: #c8643c;
-  --accent-2: #d9a441;
+  /* Ava brand */
+  --brand: #c8643c;
+  --brand-2: #d9a441;
 
+  /* Radar tier colors (used by RadarChart / TierBadge / scoring) */
   --tier-optimized: #3f9c5a;
   --tier-solid: #6fae4f;
   --tier-room: #d8a24a;
   --tier-attention: #d2792f;
   --tier-flagged: #c2502f;
   --tier-critical: #7d2b1d;
+
+  /* shadcn semantic tokens — warm light */
+  --background: #f6f0e8;
+  --foreground: #2b2622;
+  --card: #fffaf2;
+  --card-foreground: #2b2622;
+  --popover: #fffaf2;
+  --popover-foreground: #2b2622;
+  --primary: #c8643c;
+  --primary-foreground: #fdf6ec;
+  --secondary: #ece0cd;
+  --secondary-foreground: #2b2622;
+  --muted: #ece0cd;
+  --muted-foreground: #6f6253;
+  --accent: #ead9bd;
+  --accent-foreground: #2b2622;
+  --destructive: #c2502f;
+  --border: #e3d6c3;
+  --input: #e3d6c3;
+  --ring: #c8643c;
+  --chart-1: #c8643c;
+  --chart-2: #d9a441;
+  --chart-3: #3f9c5a;
+  --chart-4: #6fae4f;
+  --chart-5: #7d2b1d;
+  --radius: 0.625rem;
+  --sidebar: #f1e8db;
+  --sidebar-foreground: #2b2622;
+  --sidebar-primary: #c8643c;
+  --sidebar-primary-foreground: #fdf6ec;
+  --sidebar-accent: #ead9bd;
+  --sidebar-accent-foreground: #2b2622;
+  --sidebar-border: #e3d6c3;
+  --sidebar-ring: #c8643c;
+
+  /* Back-compat aliases for components written before shadcn */
+  --bg: var(--background);
+  --fg: var(--foreground);
 }
 
-body {
-  background-color: var(--bg);
-  color: var(--fg);
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* Ava brand exposed as Tailwind utilities (bg-brand / text-brand / ...) */
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Warm dark variant (deep espresso + terracotta) — dormant: nothing sets `.dark`
+ * yet (Ava ships light-only). Kept coherent so a future toggle stays on-brand.
+ */
+.dark {
+  --background: #211c18;
+  --foreground: #f3e9da;
+  --card: #2a241f;
+  --card-foreground: #f3e9da;
+  --popover: #2a241f;
+  --popover-foreground: #f3e9da;
+  --primary: #e0865c;
+  --primary-foreground: #211c18;
+  --secondary: #38302a;
+  --secondary-foreground: #f3e9da;
+  --muted: #38302a;
+  --muted-foreground: #b9a892;
+  --accent: #3f352c;
+  --accent-foreground: #f3e9da;
+  --destructive: #e0653f;
+  --border: #ffffff1a;
+  --input: #ffffff26;
+  --ring: #e0865c;
+  --chart-1: #e0865c;
+  --chart-2: #d9a441;
+  --chart-3: #6fae4f;
+  --chart-4: #3f9c5a;
+  --chart-5: #c2502f;
+  --sidebar: #2a241f;
+  --sidebar-foreground: #f3e9da;
+  --sidebar-primary: #e0865c;
+  --sidebar-primary-foreground: #211c18;
+  --sidebar-accent: #3f352c;
+  --sidebar-accent-foreground: #f3e9da;
+  --sidebar-border: #ffffff1a;
+  --sidebar-ring: #e0865c;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

@@ -66,8 +66,8 @@ export function RadarTeaser() {
                     aria-pressed={selected}
                     className={`rounded-full border px-4 py-2 text-sm transition-colors ${
                       selected
-                        ? 'border-transparent bg-[var(--accent)] text-white'
-                        : 'border-[var(--fg)]/15 bg-white/40 text-[var(--fg)] hover:border-[var(--accent)]'
+                        ? 'border-transparent bg-[var(--brand)] text-white'
+                        : 'border-[var(--fg)]/15 bg-white/40 text-[var(--fg)] hover:border-[var(--brand)]'
                     }`}
                   >
                     {o.label}
@@ -84,7 +84,7 @@ export function RadarTeaser() {
           <button
             type="button"
             onClick={() => setShowCapture(true)}
-            className="mt-2 self-start rounded-full bg-[var(--accent)] px-6 py-3 font-semibold text-white shadow-sm transition-transform hover:-translate-y-0.5"
+            className="mt-2 self-start rounded-full bg-[var(--brand)] px-6 py-3 font-semibold text-white shadow-sm transition-transform hover:-translate-y-0.5"
           >
             Get your full profile
           </button>

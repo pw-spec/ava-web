@@ -34,7 +34,7 @@ export function EmailCapture() {
   }
 
   if (status === 'success') {
-    return <p className="font-medium text-[var(--accent)]">You&apos;re on the list. We&apos;ll be in touch.</p>;
+    return <p className="font-medium text-[var(--brand)]">You&apos;re on the list. We&apos;ll be in touch.</p>;
   }
 
   return (
@@ -58,12 +58,12 @@ export function EmailCapture() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Your email"
           aria-label="Email"
-          className="flex-1 rounded-full border border-[var(--fg)]/15 bg-white/70 px-4 py-3 text-[var(--fg)] outline-none focus:border-[var(--accent)]"
+          className="flex-1 rounded-full border border-[var(--fg)]/15 bg-white/70 px-4 py-3 text-[var(--fg)] outline-none focus:border-[var(--brand)]"
         />
         <button
           type="submit"
           disabled={status === 'submitting'}
-          className="rounded-full bg-[var(--accent)] px-6 py-3 font-semibold text-white disabled:opacity-60"
+          className="rounded-full bg-[var(--brand)] px-6 py-3 font-semibold text-white disabled:opacity-60"
         >
           Notify me
         </button>

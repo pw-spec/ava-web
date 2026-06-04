@@ -7,7 +7,7 @@ export default function SignInPage() {
       <h1 className="text-2xl font-semibold">Welcome back</h1>
       <SignInForm />
       <p className="text-sm text-[var(--fg)]/60">
-        New here? <Link href="/sign-up" className="text-[var(--accent)]">Create an account</Link>
+        New here? <Link href="/sign-up" className="text-[var(--brand)]">Create an account</Link>
       </p>
     </main>
   );
