@@ -38,7 +38,7 @@ export function DisclosureForm({ needsState = false }: { needsState?: boolean })
       </label>
       <button
         type="submit"
-        className="rounded-full bg-[var(--accent)] px-6 py-3 font-semibold text-white"
+        className="rounded-full bg-[var(--brand)] px-6 py-3 font-semibold text-white"
       >
         Agree and continue
       </button>

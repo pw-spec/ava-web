@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col items-center gap-12 px-6 py-16">
       <header className="flex flex-col items-center gap-4 text-center">
-        <span className="text-sm font-semibold uppercase tracking-widest text-[var(--accent)]">
+        <span className="text-sm font-semibold uppercase tracking-widest text-[var(--brand)]">
           Ava
         </span>
         <h1 className="max-w-2xl text-4xl font-semibold leading-tight sm:text-5xl">

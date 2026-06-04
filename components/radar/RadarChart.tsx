@@ -18,8 +18,8 @@ export function RadarChart({ profile }: { profile: RadarProfile }) {
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="Wellness radar">
         <defs>
           <radialGradient id="ava-radar-fill" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="var(--accent-2)" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.30" />
+            <stop offset="0%" stopColor="var(--brand-2)" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="var(--brand)" stopOpacity="0.30" />
           </radialGradient>
         </defs>
 
@@ -53,7 +53,7 @@ export function RadarChart({ profile }: { profile: RadarProfile }) {
         <polygon
           points={polygonPoints(values, CENTER, CENTER, RADIUS)}
           fill="url(#ava-radar-fill)"
-          stroke="var(--accent)"
+          stroke="var(--brand)"
           strokeWidth={2}
           strokeLinejoin="round"
         />

@@ -33,7 +33,7 @@ export function SignInForm() {
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
             className="rounded-lg border border-[var(--fg)]/15 bg-white/70 px-4 py-3" />
         </label>
-        <button type="submit" className="rounded-full bg-[var(--accent)] px-6 py-3 font-semibold text-white">
+        <button type="submit" className="rounded-full bg-[var(--brand)] px-6 py-3 font-semibold text-white">
           Sign in
         </button>
         {error && <p className="text-sm text-[var(--tier-flagged)]">{error}</p>}

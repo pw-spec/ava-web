@@ -7,7 +7,7 @@ export default function SignUpPage() {
       <h1 className="text-2xl font-semibold">Create your account</h1>
       <SignUpForm />
       <p className="text-sm text-[var(--fg)]/60">
-        Already have one? <Link href="/sign-in" className="text-[var(--accent)]">Sign in</Link>
+        Already have one? <Link href="/sign-in" className="text-[var(--brand)]">Sign in</Link>
       </p>
     </main>
   );
