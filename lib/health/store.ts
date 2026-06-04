@@ -78,6 +78,37 @@ export async function userOwnsSession(
   return data != null;
 }
 
+/** Mark a session ended (owner-scoped). Idempotent: re-ending just re-stamps ended_at. */
+export async function endChatSession(
+  client: SupabaseClient,
+  userId: string,
+  sessionId: string,
+): Promise<void> {
+  const { error } = await client
+    .from('chat_sessions')
+    .update({ status: 'ended', ended_at: new Date().toISOString() })
+    .eq('id', sessionId)
+    .eq('user_id', userId);
+  ensureOk('chat_sessions', error);
+}
+
+/** True only if the session exists, belongs to the user, AND is still active. */
+export async function ownsActiveSession(
+  client: SupabaseClient,
+  userId: string,
+  sessionId: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from('chat_sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .maybeSingle();
+  ensureOk('chat_sessions', error);
+  return data != null;
+}
+
 /** Upsert the per-axis snapshot for one session (one row per session via the unique index). */
 export async function upsertSessionScores(
   client: SupabaseClient,
@@ -122,11 +153,13 @@ export async function getBaselineScores(
 export async function saveSessionSummary(
   client: SupabaseClient,
   userId: string,
+  sessionId: string,
   summary: string,
   sessionType: 'text' | 'avatar',
 ): Promise<void> {
   const { error } = await client.from('session_summaries').insert({
     user_id: userId,
+    session_id: sessionId,
     summary: encryptField(summary),
     session_type: sessionType,
   });
