@@ -17,6 +17,7 @@ const { getUser, maybeSingle, rpc, runChatTurn, store } = vi.hoisted(() => ({
     getRecentSummaries: vi.fn(),
     getUserFacts: vi.fn(),
     createChatSession: vi.fn(),
+    userOwnsSession: vi.fn(),
     getBaselineScores: vi.fn(),
     upsertSessionScores: vi.fn(),
   },
@@ -56,6 +57,7 @@ describe('POST /api/chat', () => {
     store.getRecentSummaries.mockReset().mockResolvedValue([]);
     store.getUserFacts.mockReset().mockResolvedValue(null);
     store.createChatSession.mockReset().mockResolvedValue('new-sess');
+    store.userOwnsSession.mockReset().mockResolvedValue(true);
     store.getBaselineScores.mockReset().mockResolvedValue(null);
     store.upsertSessionScores.mockReset().mockResolvedValue(undefined);
     runChatTurn.mockResolvedValue({
@@ -133,6 +135,20 @@ describe('POST /api/chat', () => {
       expect.anything(),
       'u1',
       '11111111-1111-4111-8111-111111111111',
+      expect.anything(),
+    );
+  });
+
+  it('ignores a sessionId the caller does not own (starts a fresh session)', async () => {
+    store.userOwnsSession.mockResolvedValue(false);
+    const res = await POST(req({ ...goodBody, sessionId: '22222222-2222-4222-8222-222222222222' }));
+    const body = await res.json();
+    expect(body.sessionId).toBe('new-sess'); // not the forged id
+    expect(store.createChatSession).toHaveBeenCalled();
+    expect(store.upsertSessionScores).toHaveBeenCalledWith(
+      expect.anything(),
+      'u1',
+      'new-sess',
       expect.anything(),
     );
   });

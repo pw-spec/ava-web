@@ -10,6 +10,7 @@ import {
   getRecentSummaries,
   getUserFacts,
   createChatSession,
+  userOwnsSession,
   getBaselineScores,
   upsertSessionScores,
 } from '@/lib/health/store';
@@ -121,7 +122,13 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // Persist a per-session snapshot, overlaid on the user's prior baseline (continuity).
-  const sessionId = parsed.data.sessionId ?? (await createChatSession(supabase, user.id));
+  // Only reuse a client-supplied session the caller actually owns; a forged/foreign id
+  // starts a fresh session (never writes against another user's session).
+  const provided = parsed.data.sessionId;
+  const sessionId =
+    provided && (await userOwnsSession(supabase, user.id, provided))
+      ? provided
+      : await createChatSession(supabase, user.id);
   const baseline = await getBaselineScores(supabase, user.id, sessionId);
   const overlaid = overlayProfile(baseline, result.profile);
   try {

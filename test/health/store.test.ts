@@ -9,6 +9,7 @@ import {
   getRecentSummaries,
   getUserFacts,
   createChatSession,
+  userOwnsSession,
   upsertSessionScores,
   getBaselineScores,
 } from '@/lib/health/store';
@@ -127,6 +128,24 @@ describe('createChatSession', () => {
     chain.single = () => Promise.resolve({ data: { id: 'sess-1' }, error: null });
     const client = { from: () => chain } as never;
     expect(await createChatSession(client, 'u1')).toBe('sess-1');
+  });
+});
+
+describe('userOwnsSession', () => {
+  function ownsClient(row: Record<string, unknown> | null) {
+    const result = Promise.resolve({ data: row, error: null });
+    const chain: Record<string, unknown> = {};
+    for (const m of ['select', 'eq']) chain[m] = () => chain;
+    chain.maybeSingle = () => result;
+    return { from: () => chain } as never;
+  }
+
+  it('returns true when the session row exists for the user', async () => {
+    expect(await userOwnsSession(ownsClient({ id: 's1' }), 'u1', 's1')).toBe(true);
+  });
+
+  it('returns false for a foreign or missing session', async () => {
+    expect(await userOwnsSession(ownsClient(null), 'u1', 's1')).toBe(false);
   });
 });
 

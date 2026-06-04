@@ -58,6 +58,26 @@ export async function createChatSession(client: SupabaseClient, userId: string):
   return (data as { id: string }).id;
 }
 
+/**
+ * True only if the session exists AND belongs to the user. RLS already scopes selects to the
+ * owner; the explicit `user_id` filter makes the ownership intent unmistakable. Callers use this
+ * to reject a forged/foreign client-supplied sessionId before reusing it for a write.
+ */
+export async function userOwnsSession(
+  client: SupabaseClient,
+  userId: string,
+  sessionId: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from('chat_sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  ensureOk('chat_sessions', error);
+  return data != null;
+}
+
 /** Upsert the per-axis snapshot for one session (one row per session via the unique index). */
 export async function upsertSessionScores(
   client: SupabaseClient,
