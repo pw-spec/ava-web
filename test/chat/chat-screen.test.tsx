@@ -22,6 +22,22 @@ function type(text: string) {
 describe('ChatScreen', () => {
   beforeEach(() => sendChatTurn.mockReset());
 
+  it('opens with a greeting so the screen is never empty', () => {
+    render(<ChatScreen initialProfile={emptyProfile} />);
+    expect(screen.getByText(/i'm ava/i)).toBeInTheDocument();
+  });
+
+  it('greets a returning user with a nod to their prior overall', () => {
+    const returning: RadarProfile = {
+      ...emptyProfile,
+      overall: 52,
+      tier: { label: 'Room to Grow', color: 'x' },
+    };
+    render(<ChatScreen initialProfile={returning} />);
+    // `/52/` alone would also match the score pill; assert the opener phrase specifically.
+    expect(screen.getByText(/landed around 52/i)).toBeInTheDocument();
+  });
+
   it('shows the user message then Ava reply and updates the score pill', async () => {
     sendChatTurn.mockResolvedValue({
       kind: 'reply',
@@ -46,7 +62,13 @@ describe('ChatScreen', () => {
     await waitFor(() => expect(sendChatTurn).toHaveBeenCalledTimes(2));
     const secondArg = sendChatTurn.mock.calls[1][0];
     expect(secondArg.sessionId).toBe('s1');
-    expect(secondArg.messages.map((m: { content: string }) => m.content)).toEqual(['first', 'ok', 'second']);
+    // The thread now leads with Ava's opener (an assistant turn); the user/assistant turns follow.
+    expect(secondArg.messages[0].role).toBe('assistant');
+    expect(secondArg.messages.map((m: { content: string }) => m.content).slice(-3)).toEqual([
+      'first',
+      'ok',
+      'second',
+    ]);
   });
 
   it('renders the crisis card and locks the composer', async () => {

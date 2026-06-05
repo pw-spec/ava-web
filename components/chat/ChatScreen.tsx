@@ -8,8 +8,28 @@ import { ChatComposer } from './ChatComposer';
 import { ScorePill } from './ScorePill';
 import { RadarDrawer } from './RadarDrawer';
 
+const NEW_USER_OPENER =
+  "Hey — I'm Ava. I'm not a doctor, just someone in your corner here to check in on how " +
+  "you're actually doing. No rush, nothing's off-limits. Let's start easy: how's your energy " +
+  'been this past week?';
+
+/** Ava always speaks first so the screen is never an empty void (and to set the warm, non-clinical
+ *  tone + AI framing up front). A returning user gets a continuity nod to their last overall. */
+function openerFor(profile: RadarProfile): string {
+  if (profile.overall !== null) {
+    return (
+      `Good to see you back. Last time your overall landed around ${profile.overall} — ` +
+      "let's see where things are now. How's your energy been since we last talked?"
+    );
+  }
+  return NEW_USER_OPENER;
+}
+
 export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile }) {
-  const [messages, setMessages] = useState<UiMessage[]>([]);
+  const opener = openerFor(initialProfile);
+  const [messages, setMessages] = useState<UiMessage[]>([
+    { id: 0, role: 'assistant', content: opener },
+  ]);
   const [signals, setSignals] = useState<Signals>({});
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [profile, setProfile] = useState<RadarProfile>(initialProfile);
@@ -67,7 +87,7 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
   /** This slice: end = reset the conversation (scores already persisted per turn). 1C-b-iii adds the summary. */
   function endCheckIn() {
     setDrawerOpen(false);
-    setMessages([]);
+    setMessages([{ id: 0, role: 'assistant', content: opener }]);
     setSignals({});
     setSessionId(undefined);
     setProfile(initialProfile);
@@ -76,19 +96,31 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
   }
 
   return (
-    <main className="mx-auto flex h-screen max-w-md flex-col bg-background">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
-        <span className="font-semibold tracking-tight text-foreground">Ava</span>
-        <ScorePill profile={profile} pulsing={pulsing} onToggle={() => setDrawerOpen((o) => !o)} />
-      </header>
-      <MessageList messages={messages} pending={pending} crisis={crisis} capped={capped} />
-      <ChatComposer onSend={send} disabled={locked} />
+    <div className="relative min-h-screen w-full bg-background">
+      {/* Warm atmosphere behind the centered column — gives wide screens depth instead of a dead field. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0"
+        style={{
+          background:
+            'radial-gradient(120% 80% at 50% -10%, rgba(200,100,60,0.10), transparent 55%), ' +
+            'radial-gradient(85% 55% at 50% 108%, rgba(217,164,65,0.10), transparent 50%)',
+        }}
+      />
+      <main className="relative mx-auto flex h-screen max-w-md flex-col border-x border-border/60 bg-background shadow-[0_0_80px_rgba(43,38,34,0.05)]">
+        <header className="flex items-center justify-between border-b border-border px-4 py-3">
+          <span className="font-semibold tracking-tight text-foreground">Ava</span>
+          <ScorePill profile={profile} pulsing={pulsing} onToggle={() => setDrawerOpen((o) => !o)} />
+        </header>
+        <MessageList messages={messages} pending={pending} crisis={crisis} capped={capped} />
+        <ChatComposer onSend={send} disabled={locked} />
+      </main>
       <RadarDrawer
         open={drawerOpen}
         profile={profile}
         onClose={() => setDrawerOpen(false)}
         onEnd={endCheckIn}
       />
-    </main>
+    </div>
   );
 }
