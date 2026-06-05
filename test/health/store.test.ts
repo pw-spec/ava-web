@@ -12,6 +12,8 @@ import {
   userOwnsSession,
   upsertSessionScores,
   getBaselineScores,
+  endChatSession,
+  ownsActiveSession,
 } from '@/lib/health/store';
 
 beforeEach(() => {
@@ -87,8 +89,9 @@ describe('getLatestHealthScores', () => {
 describe('saveSessionSummary / saveUserFacts', () => {
   it('encrypts the summary, leaves session_type plaintext', async () => {
     const { client, captured } = captureClient('insert');
-    await saveSessionSummary(client, 'u1', 'slept poorly, low drive', 'text');
+    await saveSessionSummary(client, 'u1', 'sess-1', 'slept poorly, low drive', 'text');
     expect(captured.row!.session_type).toBe('text');
+    expect(captured.row!.session_id).toBe('sess-1');
     expect(decryptField(captured.row!.summary as string)).toBe('slept poorly, low drive');
   });
 
@@ -197,5 +200,35 @@ describe('getBaselineScores', () => {
 
   it('returns null when there is no prior snapshot', async () => {
     expect(await getBaselineScores(baselineClient(null), 'u1', 'active-sess')).toBeNull();
+  });
+});
+
+describe('endChatSession / ownsActiveSession', () => {
+  it('endChatSession marks the session ended (scoped to owner)', async () => {
+    const captured: { patch?: Record<string, unknown> } = {};
+    const client = {
+      from: () => ({
+        update: (patch: Record<string, unknown>) => {
+          captured.patch = patch;
+          return { eq: () => ({ eq: () => Promise.resolve({ error: null }) }) };
+        },
+      }),
+    } as never;
+    await endChatSession(client, 'u1', 'sess-1');
+    expect(captured.patch!.status).toBe('ended');
+    expect(captured.patch!.ended_at).toBeTruthy();
+  });
+
+  function activeClient(row: Record<string, unknown> | null) {
+    const result = Promise.resolve({ data: row, error: null });
+    const chain: Record<string, unknown> = {};
+    for (const m of ['select', 'eq']) chain[m] = () => chain;
+    chain.maybeSingle = () => result;
+    return { from: () => chain } as never;
+  }
+
+  it('ownsActiveSession is true only for an owned active session', async () => {
+    expect(await ownsActiveSession(activeClient({ id: 's' }), 'u1', 's')).toBe(true);
+    expect(await ownsActiveSession(activeClient(null), 'u1', 's')).toBe(false);
   });
 });

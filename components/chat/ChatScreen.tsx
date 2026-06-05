@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react';
 import type { RadarProfile, Signals } from '@/lib/scoring';
 import type { CrisisCard, LlmMessage } from '@/lib/safeguards/types';
-import { sendChatTurn } from '@/lib/chat/client';
+import { sendChatTurn, endSession } from '@/lib/chat/client';
 import { MessageList, type UiMessage } from './MessageList';
 import { ChatComposer } from './ChatComposer';
 import { ScorePill } from './ScorePill';
@@ -84,15 +84,19 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
     }
   }
 
-  /** This slice: end = reset the conversation (scores already persisted per turn). 1C-b-iii adds the summary. */
+  /** Finalize the check-in: fire-and-forget the summary/close-out, then reset the conversation.
+   *  Scores already persisted per turn; the summary is written server-side. */
   function endCheckIn() {
+    const sid = sessionId;
+    const wire: LlmMessage[] = messages.map((m) => ({ role: m.role, content: m.content }));
     setDrawerOpen(false);
     setMessages([{ id: 0, role: 'assistant', content: opener }]);
     setSignals({});
     setSessionId(undefined);
     setProfile(initialProfile);
     setCapped(false);
-    setCrisis(null); // clear the crisis lock too — a reset must not leave a dead-end disabled composer
+    setCrisis(null);
+    if (sid) void endSession({ messages: wire, sessionId: sid });
   }
 
   return (

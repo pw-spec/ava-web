@@ -30,3 +30,21 @@ export async function sendChatTurn(body: {
   if (!res.ok) return { kind: 'error', text: SAFE_ERROR };
   return (await res.json()) as ChatApiResponse;
 }
+
+/** POST a finished check-in to /api/session/end for summarization + close-out. Never throws. */
+export async function endSession(body: {
+  messages: LlmMessage[];
+  sessionId: string;
+}): Promise<{ ok: boolean; summarized?: boolean }> {
+  try {
+    const res = await fetch('/api/session/end', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return { ok: false };
+    return (await res.json()) as { ok: boolean; summarized?: boolean };
+  } catch {
+    return { ok: false };
+  }
+}
