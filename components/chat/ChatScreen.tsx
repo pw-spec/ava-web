@@ -41,7 +41,8 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
   const [pulsing, setPulsing] = useState(false);
   // The Gap is a first-mapping beat: suppress it if the session already opens at/above
   // threshold (a returning user whose baseline already has 4+ axes).
-  const [gapShown, setGapShown] = useState(scoredAxisCount(initialProfile) >= GAP_THRESHOLD);
+  const opensAtThreshold = scoredAxisCount(initialProfile) >= GAP_THRESHOLD;
+  const [gapShown, setGapShown] = useState(opensAtThreshold);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const focusComposer = () => composerRef.current?.focus();
   const idRef = useRef(0);
@@ -108,7 +109,7 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
     setProfile(initialProfile);
     setCapped(false);
     setCrisis(null);
-    setGapShown(scoredAxisCount(initialProfile) >= GAP_THRESHOLD);
+    setGapShown(opensAtThreshold);
     if (sid) void endSession({ messages: wire, sessionId: sid });
   }
 

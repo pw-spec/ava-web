@@ -163,6 +163,21 @@ describe('ChatScreen', () => {
     expect(screen.getByRole('textbox')).toHaveFocus();
   });
 
+  it('never sends the inline gap item to the LLM (wire is text-only)', async () => {
+    sendChatTurn
+      .mockResolvedValueOnce({ kind: 'reply', reply: 'r1', signals: {}, profile: profileWith(4), sessionId: 's1' })
+      .mockResolvedValueOnce({ kind: 'reply', reply: 'r2', signals: {}, profile: profileWith(5), sessionId: 's1' });
+    render(<ChatScreen initialProfile={emptyProfile} />);
+    type('a');
+    await waitFor(() => expect(screen.getByText(/still blank/i)).toBeInTheDocument()); // gap is now in the stream
+    type('b');
+    await waitFor(() => expect(sendChatTurn).toHaveBeenCalledTimes(2));
+    const wire = sendChatTurn.mock.calls[1][0].messages;
+    // every wire entry is a real text turn — no gap item (which has `kind` and no role/content) leaked in
+    expect(wire.every((m: { role?: string; content?: string }) => 'role' in m && 'content' in m)).toBe(true);
+    expect(wire.some((m: { kind?: string }) => m.kind === 'gap')).toBe(false);
+  });
+
   it('clears the Gap card after the check-in is ended', async () => {
     sendChatTurn.mockResolvedValue({ kind: 'reply', reply: 'r', signals: {}, profile: profileWith(4), sessionId: 's1' });
     render(<ChatScreen initialProfile={emptyProfile} />);

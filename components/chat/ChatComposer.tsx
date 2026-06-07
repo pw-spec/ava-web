@@ -23,6 +23,7 @@ export function ChatComposer({
 
   return (
     <div className="flex items-end gap-2 border-t border-border bg-background p-3">
+      {/* React 19 forwards ref-as-prop through shadcn Textarea's {...props} spread → lands on the host <textarea> */}
       <Textarea
         ref={textareaRef}
         value={value}
