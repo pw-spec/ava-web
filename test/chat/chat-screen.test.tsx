@@ -7,12 +7,19 @@ vi.mock('@/lib/chat/client', () => ({ sendChatTurn, endSession }));
 
 import { ChatScreen } from '@/components/chat/ChatScreen';
 import type { RadarProfile } from '@/lib/scoring';
+import { AXES } from '@/lib/scoring';
 
 const emptyProfile: RadarProfile = {
   axes: { energy: null, strength: null, sleep: null, drive: null, focus: null, body: null },
   overall: null,
   tier: null,
 };
+
+/** A reply profile with the first `n` axes scored (50), the rest null. */
+function profileWith(n: number): RadarProfile {
+  const axes = Object.fromEntries(AXES.map((a, i) => [a, i < n ? 50 : null])) as RadarProfile['axes'];
+  return { axes, overall: n ? 50 : null, tier: { label: 'Room to Grow', color: 'x' } };
+}
 
 function type(text: string) {
   fireEvent.change(screen.getByRole('textbox'), { target: { value: text } });
@@ -117,5 +124,52 @@ describe('ChatScreen', () => {
     const arg = endSession.mock.calls[0][0];
     expect(arg.sessionId).toBe('s1');
     expect(arg.messages.some((m: { content: string }) => m.content === 'low energy')).toBe(true);
+  });
+
+  it('reveals the Gap card once, when the 4th axis is scored', async () => {
+    sendChatTurn
+      .mockResolvedValueOnce({ kind: 'reply', reply: 'r1', signals: {}, profile: profileWith(3), sessionId: 's1' })
+      .mockResolvedValueOnce({ kind: 'reply', reply: 'r2', signals: {}, profile: profileWith(4), sessionId: 's1' })
+      .mockResolvedValueOnce({ kind: 'reply', reply: 'r3', signals: {}, profile: profileWith(5), sessionId: 's1' });
+    render(<ChatScreen initialProfile={emptyProfile} />);
+
+    type('a');
+    await waitFor(() => expect(screen.getByText('r1')).toBeInTheDocument());
+    expect(screen.queryByText(/still blank/i)).not.toBeInTheDocument(); // 3 scored → no gap yet
+
+    type('b');
+    await waitFor(() => expect(screen.getByText('r2')).toBeInTheDocument());
+    expect(screen.getByText(/still blank/i)).toBeInTheDocument(); // 4 scored → gap appears
+
+    type('c');
+    await waitFor(() => expect(screen.getByText('r3')).toBeInTheDocument());
+    expect(screen.getAllByText(/still blank/i)).toHaveLength(1); // only once
+  });
+
+  it('suppresses the Gap when the session starts already mapped (returning user)', async () => {
+    sendChatTurn.mockResolvedValue({ kind: 'reply', reply: 'r', signals: {}, profile: profileWith(5), sessionId: 's1' });
+    render(<ChatScreen initialProfile={profileWith(4)} />);
+    type('hi');
+    await waitFor(() => expect(screen.getByText('r')).toBeInTheDocument());
+    expect(screen.queryByText(/still blank/i)).not.toBeInTheDocument();
+  });
+
+  it('focuses the composer when "Keep going" is clicked', async () => {
+    sendChatTurn.mockResolvedValue({ kind: 'reply', reply: 'r', signals: {}, profile: profileWith(4), sessionId: 's1' });
+    render(<ChatScreen initialProfile={emptyProfile} />);
+    type('hi');
+    await waitFor(() => expect(screen.getByText(/still blank/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /keep going/i }));
+    expect(screen.getByRole('textbox')).toHaveFocus();
+  });
+
+  it('clears the Gap card after the check-in is ended', async () => {
+    sendChatTurn.mockResolvedValue({ kind: 'reply', reply: 'r', signals: {}, profile: profileWith(4), sessionId: 's1' });
+    render(<ChatScreen initialProfile={emptyProfile} />);
+    type('hi');
+    await waitFor(() => expect(screen.getByText(/still blank/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /wellness score/i })); // open the drawer
+    fireEvent.click(screen.getByRole('button', { name: /end check-?in/i }));
+    expect(screen.queryByText(/still blank/i)).not.toBeInTheDocument();
   });
 });

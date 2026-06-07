@@ -3,7 +3,15 @@ import { useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 
-export function ChatComposer({ onSend, disabled }: { onSend: (text: string) => void; disabled: boolean }) {
+export function ChatComposer({
+  onSend,
+  disabled,
+  textareaRef,
+}: {
+  onSend: (text: string) => void;
+  disabled: boolean;
+  textareaRef?: React.Ref<HTMLTextAreaElement>;
+}) {
   const [value, setValue] = useState('');
 
   function submit() {
@@ -16,6 +24,7 @@ export function ChatComposer({ onSend, disabled }: { onSend: (text: string) => v
   return (
     <div className="flex items-end gap-2 border-t border-border bg-background p-3">
       <Textarea
+        ref={textareaRef}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {

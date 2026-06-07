@@ -3,10 +3,11 @@ import { useRef, useState } from 'react';
 import type { RadarProfile, Signals } from '@/lib/scoring';
 import type { CrisisCard, LlmMessage } from '@/lib/safeguards/types';
 import { sendChatTurn, endSession } from '@/lib/chat/client';
-import { MessageList, type UiMessage } from './MessageList';
+import { MessageList, isTextItem, type UiItem, type UiMessage } from './MessageList';
 import { ChatComposer } from './ChatComposer';
 import { ScorePill } from './ScorePill';
 import { RadarDrawer } from './RadarDrawer';
+import { scoredAxisCount, GAP_THRESHOLD } from '@/lib/chat/gap';
 
 const NEW_USER_OPENER =
   "Hey — I'm Ava. I'm not a doctor, just someone in your corner here to check in on how " +
@@ -27,7 +28,7 @@ function openerFor(profile: RadarProfile): string {
 
 export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile }) {
   const opener = openerFor(initialProfile);
-  const [messages, setMessages] = useState<UiMessage[]>([
+  const [messages, setMessages] = useState<UiItem[]>([
     { id: 0, role: 'assistant', content: opener },
   ]);
   const [signals, setSignals] = useState<Signals>({});
@@ -38,6 +39,11 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
   const [capped, setCapped] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pulsing, setPulsing] = useState(false);
+  // The Gap is a first-mapping beat: suppress it if the session already opens at/above
+  // threshold (a returning user whose baseline already has 4+ axes).
+  const [gapShown, setGapShown] = useState(scoredAxisCount(initialProfile) >= GAP_THRESHOLD);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const focusComposer = () => composerRef.current?.focus();
   const idRef = useRef(0);
   // Synchronous latch: the `locked` derived state only disables the composer after a
   // re-render, so a same-tick double-trigger (Enter + click) could fire two concurrent
@@ -57,16 +63,22 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
     sendingRef.current = true;
     try {
       const userMsg: UiMessage = { id: nextId(), role: 'user', content: text };
-      const history: UiMessage[] = [...messages, userMsg];
+      const history: UiItem[] = [...messages, userMsg];
       setMessages(history);
       setPending(true);
 
-      const wire: LlmMessage[] = history.map((m) => ({ role: m.role, content: m.content }));
+      const wire: LlmMessage[] = history.filter(isTextItem).map((m) => ({ role: m.role, content: m.content }));
       const res = await sendChatTurn({ messages: wire, signals, sessionId });
       setPending(false);
 
       if (res.kind === 'reply') {
-        setMessages([...history, { id: nextId(), role: 'assistant', content: res.reply }]);
+        const assistant: UiItem = { id: nextId(), role: 'assistant', content: res.reply };
+        const next: UiItem[] = [...history, assistant];
+        if (!gapShown && scoredAxisCount(res.profile) >= GAP_THRESHOLD) {
+          setGapShown(true);
+          next.push({ id: nextId(), kind: 'gap', profile: res.profile });
+        }
+        setMessages(next);
         setSignals(res.signals);
         setProfile(res.profile);
         setSessionId(res.sessionId);
@@ -88,7 +100,7 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
    *  Scores already persisted per turn; the summary is written server-side. */
   function endCheckIn() {
     const sid = sessionId;
-    const wire: LlmMessage[] = messages.map((m) => ({ role: m.role, content: m.content }));
+    const wire: LlmMessage[] = messages.filter(isTextItem).map((m) => ({ role: m.role, content: m.content }));
     setDrawerOpen(false);
     setMessages([{ id: 0, role: 'assistant', content: opener }]);
     setSignals({});
@@ -96,6 +108,7 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
     setProfile(initialProfile);
     setCapped(false);
     setCrisis(null);
+    setGapShown(scoredAxisCount(initialProfile) >= GAP_THRESHOLD);
     if (sid) void endSession({ messages: wire, sessionId: sid });
   }
 
@@ -116,8 +129,8 @@ export function ChatScreen({ initialProfile }: { initialProfile: RadarProfile })
           <span className="font-semibold tracking-tight text-foreground">Ava</span>
           <ScorePill profile={profile} pulsing={pulsing} onToggle={() => setDrawerOpen((o) => !o)} />
         </header>
-        <MessageList messages={messages} pending={pending} crisis={crisis} capped={capped} />
-        <ChatComposer onSend={send} disabled={locked} />
+        <MessageList messages={messages} pending={pending} crisis={crisis} capped={capped} focusComposer={focusComposer} />
+        <ChatComposer onSend={send} disabled={locked} textareaRef={composerRef} />
       </main>
       <RadarDrawer
         open={drawerOpen}
