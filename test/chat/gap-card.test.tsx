@@ -30,6 +30,18 @@ describe('GapCard', () => {
     expect(tokens.filter((t) => t === '??')).toHaveLength(2);
   });
 
+  it('exposes the radar SVG with an accessible role/name', () => {
+    render(<GapCard profile={profile} onKeepGoing={() => {}} />);
+    expect(screen.getByRole('img', { name: /radar/i })).toBeInTheDocument();
+  });
+
+  it('renders the numeric value for scored axes', () => {
+    const { container } = render(<GapCard profile={profile} onKeepGoing={() => {}} />);
+    const tokens = Array.from(container.querySelectorAll('tspan')).map((t) => t.textContent);
+    expect(tokens).toContain('58');
+    expect(tokens).toContain('60');
+  });
+
   it('does not leak any axis symptom/condition language (labels + values only)', () => {
     render(<GapCard profile={profile} onKeepGoing={() => {}} />);
     expect(screen.queryByText(/testosterone|diagnos|symptom|condition/i)).not.toBeInTheDocument();

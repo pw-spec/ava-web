@@ -3,6 +3,7 @@ import { AXES, AXIS_META, type RadarProfile } from '@/lib/scoring';
 import { pointForValue, polygonPoints, scoresToValues } from '@/components/radar/geometry';
 import { scoredAxisCount } from '@/lib/chat/gap';
 import { Button } from '@/components/ui/button';
+import { AvaBubble } from '@/components/chat/AvaBubble';
 
 const SIZE = 180;
 const C = SIZE / 2;
@@ -19,9 +20,8 @@ export function GapCard({ profile, onKeepGoing }: { profile: RadarProfile; onKee
   const blanks = AXES.length - scoredAxisCount(profile);
 
   return (
-    <div className="flex w-full justify-start">
-      <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-card p-4 text-card-foreground">
-        <p className="text-sm font-medium">Here&apos;s where you&apos;re landing so far.</p>
+    <AvaBubble className="max-w-[85%] p-4">
+      <p className="text-sm font-medium">Here&apos;s where you&apos;re landing so far.</p>
 
         <div className="my-3 flex justify-center">
           <svg
@@ -89,10 +89,9 @@ export function GapCard({ profile, onKeepGoing }: { profile: RadarProfile; onKee
           Your full profile fills in all six — with a written read on what they mean together.
         </p>
 
-        <Button onClick={onKeepGoing} variant="outline" className="mt-3 w-full">
-          Keep going →
-        </Button>
-      </div>
-    </div>
+      <Button onClick={onKeepGoing} variant="outline" className="mt-3 w-full">
+        Keep going →
+      </Button>
+    </AvaBubble>
   );
 }
