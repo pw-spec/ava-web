@@ -4,6 +4,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { RadarDrawer } from '@/components/chat/RadarDrawer';
 import type { RadarProfile } from '@/lib/scoring';
 
+vi.mock('@/lib/share/client', () => ({ createShareCard: vi.fn() }));
+
 const profile: RadarProfile = {
   axes: { energy: 50, strength: null, sleep: null, drive: null, focus: null, body: null },
   overall: 47,
@@ -30,5 +32,16 @@ describe('RadarDrawer', () => {
   it('is hidden from assistive tech when closed', () => {
     render(<RadarDrawer open={false} profile={profile} onClose={() => {}} onEnd={() => {}} />);
     expect(screen.queryByRole('img', { name: /wellness radar/i })).not.toBeInTheDocument();
+  });
+
+  it('offers "Share my baseline" when there is a baseline', () => {
+    render(<RadarDrawer open profile={profile} onClose={() => {}} onEnd={() => {}} />);
+    expect(screen.getByRole('button', { name: /share my baseline/i })).toBeInTheDocument();
+  });
+
+  it('hides the share trigger when there is no baseline', () => {
+    const blank: RadarProfile = { ...profile, overall: null, tier: null };
+    render(<RadarDrawer open profile={blank} onClose={() => {}} onEnd={() => {}} />);
+    expect(screen.queryByRole('button', { name: /share my baseline/i })).not.toBeInTheDocument();
   });
 });

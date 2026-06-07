@@ -1,6 +1,7 @@
 'use client';
 import type { RadarProfile } from '@/lib/scoring';
 import { RadarChart } from '@/components/radar/RadarChart';
+import { ShareBaseline } from '@/components/share/ShareBaseline';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -27,6 +28,7 @@ export function RadarDrawer({
       <div className="relative z-10 w-full max-w-md rounded-t-3xl border border-border bg-card p-5 shadow-xl">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" aria-hidden />
         <RadarChart profile={profile} />
+        <ShareBaseline canShare={profile.overall !== null} />
         <Button onClick={onEnd} disabled={ending} className="mt-4 w-full">
           {ending ? 'Saving…' : 'End check-in & save'}
         </Button>
