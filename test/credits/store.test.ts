@@ -15,6 +15,7 @@ function mockClient(result: { data?: unknown; error?: unknown }) {
     builder[m] = vi.fn(() => builder);
   }
   builder.maybeSingle = vi.fn(() => Promise.resolve(result));
+  // `builder.then` resolves the same `result` as `.maybeSingle()`, so the mock does not enforce terminal-call shape.
   (builder as { then?: unknown }).then = (resolve: (v: unknown) => void) => resolve(result);
   // reason: the test mock stands in for SupabaseClient's fluent builder; `never` avoids re-typing it.
   return { client: { from: vi.fn(() => builder) } as never, builder };
@@ -59,24 +60,29 @@ describe('grantCredits', () => {
 
 describe('getWellnessProfile', () => {
   it('returns the latest entitlement', async () => {
-    const { client } = mockClient({ data: { id: 'p1', session_id: 's1', status: 'paid', report: null }, error: null });
+    const { client, builder } = mockClient({ data: { id: 'p1', session_id: 's1', status: 'paid', report: null }, error: null });
     expect(await getWellnessProfile(client, 'u1', 's1')).toEqual({
       id: 'p1',
       session_id: 's1',
       status: 'paid',
       report: null,
     });
+    expect(builder.eq).toHaveBeenCalledWith('session_id', 's1');
   });
   it('returns null when there is no entitlement', async () => {
-    const { client } = mockClient({ data: null, error: null });
+    const { client, builder } = mockClient({ data: null, error: null });
     expect(await getWellnessProfile(client, 'u1')).toBeNull();
+    expect(builder.eq).toHaveBeenCalledTimes(1);
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'u1');
   });
 });
 
 describe('upsertEntitlement', () => {
   it('upserts on stripe_checkout_id', async () => {
     const { client, builder } = mockClient({ error: null });
-    await upsertEntitlement(client, { userId: 'u1', sessionId: 's1', stripeCheckoutId: 'cs_1', status: 'paid' });
+    await expect(
+      upsertEntitlement(client, { userId: 'u1', sessionId: 's1', stripeCheckoutId: 'cs_1', status: 'paid' }),
+    ).resolves.toBeUndefined();
     expect(builder.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ stripe_checkout_id: 'cs_1', status: 'paid' }),
       { onConflict: 'stripe_checkout_id' },
@@ -87,7 +93,7 @@ describe('upsertEntitlement', () => {
 describe('saveReport', () => {
   it('writes the encrypted report and flips status to ready', async () => {
     const { client, builder } = mockClient({ error: null });
-    await saveReport(client, 'p1', 'v1:abc');
+    await expect(saveReport(client, 'p1', 'v1:abc')).resolves.toBeUndefined();
     expect(builder.update).toHaveBeenCalledWith({ report: 'v1:abc', status: 'ready' });
   });
 });

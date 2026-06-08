@@ -51,10 +51,13 @@ export async function grantCredits(
   return { granted: true };
 }
 
+/** The wellness-profile lifecycle: paid (entitlement granted) → ready (report generated). */
+export type ProfileStatus = 'paid' | 'ready';
+
 export interface WellnessProfileRecord {
   id: string;
   session_id: string | null;
-  status: string;
+  status: ProfileStatus;
   report: string | null;
 }
 
@@ -78,7 +81,7 @@ export interface EntitlementInput {
   userId: string;
   sessionId: string | null;
   stripeCheckoutId: string;
-  status: string;
+  status: ProfileStatus;
 }
 
 /** Create/refresh the purchase entitlement via the service-role client. Idempotent on stripe_checkout_id. */
