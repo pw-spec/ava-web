@@ -55,17 +55,22 @@ export async function POST(request: Request): Promise<Response> {
   if (entitlement.status === 'ready') return NextResponse.json({ status: 'ready' });
 
   // status 'paid', no report yet → generate (Sonnet → output filter), encrypt, store, discard transcript.
+  // (Concurrency: two racing calls both generate + saveReport on the same id — last wins, same end
+  //  state. A tolerated, self-correcting race; not worth a lock.)
   const admin = getSupabaseAdmin();
-  let report: string | null = null;
+  let report: string | null;
   try {
     report = await generateProfileReport({
       messages: parsed.data.messages as LlmMessage[],
       log: makeComplianceSink(admin, user.id),
     });
   } catch {
-    report = null;
+    // Transient (e.g. Sonnet API error) — retryable.
+    return NextResponse.json({ status: 'pending' });
   }
-  if (!report) return NextResponse.json({ status: 'pending' }); // filter-drop/failure → retryable
+  // null = the output filter dropped it twice. Deterministic: retrying won't help, so signal a
+  // terminal failure the client can surface (refund path is a later 1D slice), not endless polling.
+  if (!report) return NextResponse.json({ status: 'failed' });
 
   await saveReport(admin, entitlement.id, encryptField(report));
   return NextResponse.json({ status: 'ready' });

@@ -80,9 +80,17 @@ describe('POST /api/profile/generate', () => {
     expect(saveReport).toHaveBeenCalledWith(expect.anything(), 'p1', 'v1:enc');
   });
 
-  it('stays pending (retryable) when generation is filtered/dropped', async () => {
+  it('returns failed (terminal) when generation is filtered/dropped', async () => {
     getWellnessProfile.mockResolvedValue({ id: 'p1', session_id: SID, status: 'paid', report: null });
     generateProfileReport.mockResolvedValue(null);
+    const res = await POST(req());
+    expect(await res.json()).toEqual({ status: 'failed' });
+    expect(saveReport).not.toHaveBeenCalled();
+  });
+
+  it('stays pending (retryable) when generation throws a transient error', async () => {
+    getWellnessProfile.mockResolvedValue({ id: 'p1', session_id: SID, status: 'paid', report: null });
+    generateProfileReport.mockRejectedValue(new Error('sonnet 503'));
     const res = await POST(req());
     expect(await res.json()).toEqual({ status: 'pending' });
     expect(saveReport).not.toHaveBeenCalled();
