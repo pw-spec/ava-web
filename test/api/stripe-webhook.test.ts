@@ -100,4 +100,19 @@ describe('POST /api/stripe/webhook', () => {
     expect((await POST(req())).status).toBe(200);
     expect(grantCredits).not.toHaveBeenCalled();
   });
+
+  it('still 200 + upserts the entitlement when the grant is an idempotent replay', async () => {
+    grantCredits.mockResolvedValue({ granted: false });
+    constructEvent.mockReturnValue({
+      id: 'evt_dup',
+      type: 'checkout.session.completed',
+      data: { object: { id: 'cs_dup', metadata: { userId: 'u1', sessionId: 's1' } } },
+    });
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    expect(upsertEntitlement).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ stripeCheckoutId: 'cs_dup', status: 'paid' }),
+    );
+  });
 });

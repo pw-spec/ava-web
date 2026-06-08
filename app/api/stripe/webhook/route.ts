@@ -33,11 +33,15 @@ export async function POST(request: Request): Promise<Response> {
   const userId = session.metadata?.userId;
   if (!userId) return NextResponse.json({ received: true }); // nothing to grant
 
-  const credits = Number(process.env.WELLNESS_PROFILE_CREDITS ?? 12);
-  const priceCents = Number(process.env.WELLNESS_PROFILE_PRICE_CENTS ?? 2900);
-  const months = Number(process.env.CREDIT_EXPIRY_MONTHS ?? 12);
+  const credits = Number(process.env.WELLNESS_PROFILE_CREDITS) || 12;
+  const priceCents = Number(process.env.WELLNESS_PROFILE_PRICE_CENTS) || 2900;
+  const months = Number(process.env.CREDIT_EXPIRY_MONTHS) || 12;
 
   const admin = getSupabaseAdmin();
+  // Grant first, then entitlement — both idempotent (grantCredits no-ops on its stripe_event_id
+  // unique, upsertEntitlement on stripe_checkout_id). If either await throws, we let it 500 so
+  // Stripe RETRIES the webhook; the retry safely re-applies without double-granting. Do NOT
+  // swallow-and-200 here — that would silently drop the entitlement.
   await grantCredits(admin, {
     userId,
     delta: credits,
